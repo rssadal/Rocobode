@@ -1,12 +1,4 @@
-/*
- * Copyright (c) 2001-2022 Mathew A. Nelson and Robocode contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * https://robocode.sourceforge.io/license/epl-v10.html
- */
 package upa;
-
 
 import robocode.HitRobotEvent;
 import robocode.Robot;
@@ -14,16 +6,17 @@ import robocode.ScannedRobotEvent;
 import robocode.util.Utils;
 import robocode.Rules;
 import robocode.HitByBulletEvent;
+import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 import java.awt.*;
 import java.awt.geom.*;
 import java.util.ArrayList;
 
-
 public class SAMUdoBruno extends Robot {
 
 	boolean peek; // Don't turn if there's a robot there
 	double moveAmount; // How much to move
+	double gunTurnAmt;
 
 	/**
 	 * run: Move around the walls
@@ -36,7 +29,7 @@ public class SAMUdoBruno extends Robot {
 		moveAmount = Math.max(getBattleFieldWidth(), getBattleFieldHeight());
 		// Initialize peek to false
 		peek = false;
-
+		gunTurnAmt = 10;
 		// turnLeft to face a wall.
 		// getHeading() % 90 means the remainder of
 		// getHeading() divided by 90.
@@ -44,9 +37,8 @@ public class SAMUdoBruno extends Robot {
 		ahead(moveAmount);
 		// Turn the gun to turn right 90 degrees.
 		peek = true;
-		//turnGunRight(90);
 		turnRight(90);
-
+		turnGunRight(90);
 		while (true) {
 			// Look before we turn when ahead() completes.
 			peek = true;
@@ -61,7 +53,9 @@ public class SAMUdoBruno extends Robot {
 	}
 	
 	public void onHitByBullet(HitByBulletEvent e){
-		
+		turnRight(45);
+		ahead(moveAmount);
+		turnRight(45);
 	}
 
 	/**
@@ -85,12 +79,22 @@ public class SAMUdoBruno extends Robot {
 		double turnToEnemy = Utils.normalRelativeAngle(angleToEnemy - (Math.PI * (getRadarHeading()) / 180));
 		double extraTurn = Math.atan(36.0 / e.getDistance()) * (turnToEnemy >= 0 ? 1 : -1);
 		turnRadarRight(Math.PI * (turnToEnemy + extraTurn) / 180);
-		//turnRadarLeft(Math.PI * (getRadarTurnRemainingRadians()) / 180);
-		double skew = (e.getDistance() - 300) / 5 * -Math.signum(getVelocity());
+		turnRadarLeft(Math.PI * 45 / 180);
+	/*	double skew = (e.getDistance() - 300) / 5 * -Math.signum(getVelocity());
 		turnRight(e.getBearing() + 90 + skew);	
+		
+		if (e.getDistance() > 150) {
+			gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
+			turnGunRight(gunTurnAmt); 
+			turnRight(e.getBearing()); 
+			ahead(e.getDistance() - 140);
+			return;
+		}
+		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
+		turnGunRight(gunTurnAmt);*/
 		shoot(e);
 		
-		if (peek) {
+		if(peek){		
 			scan();
 		}
 	}
@@ -98,10 +102,13 @@ public class SAMUdoBruno extends Robot {
 	public void shoot(ScannedRobotEvent e) {
 		double firePower = decideFirePower(e);
 		double absoluteBearing = (Math.PI * (e.getBearing()) / 180) + (Math.PI * (getHeading())/180);
+		//double absoluteBearing = e.getBearing() + getHeading();
 		double gunTurn = absoluteBearing - (Math.PI * (getGunHeading()) / 180);
+		//double gunTurn = absoluteBearing - getGunHeading();
 		double future = e.getVelocity() * Math.sin((Math.PI * (e.getHeading()) / 180) - absoluteBearing) / Rules.getBulletSpeed(firePower);
-		
+		//double future = e.getVelocity() * Math.sin((e.getHeading()) - absoluteBearing) / Rules.getBulletSpeed(firePower);		
 		turnGunRight(Math.PI * (Utils.normalRelativeAngle(gunTurn + future)) / 180);
+		//turnGunRight(Utils.normalRelativeAngle(gunTurn + future));
 		fire(firePower);
 	}
 	
@@ -109,16 +116,16 @@ public class SAMUdoBruno extends Robot {
 		double firePower = getOthers() == 1 ? 2.0 : 3.0;
 		
 		if(e.getDistance() > 400){
-			firePower = 1.0;
+			firePower = 2.0;
 		}else if(e.getDistance() < 200) {
-			firePower = 3.0;
+			firePower = 4.0;
 		}
-		
+		/*
 		if(getEnergy() < 1){
 			firePower = 0.1;
 		}else if(getEnergy() < 10){
 			firePower = 1.0;
-		}
-		return Math.min(e.getEnergy() / 4, firePower);
+		}*/
+		return Math.max(e.getEnergy() / 4, firePower);
 	}
 }
