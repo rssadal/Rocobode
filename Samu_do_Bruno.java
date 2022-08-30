@@ -11,28 +11,16 @@ package upa;
 import robocode.HitRobotEvent;
 import robocode.Robot;
 import robocode.ScannedRobotEvent;
+import robocode.util.Utils;
+import robocode.Rules;
+import robocode.HitByBulletEvent;
 
 import java.awt.*;
+import java.awt.geom.*;
+import java.util.ArrayList;
 
 
-/**
- * Walls - a sample robot by Mathew Nelson, and maintained by Flemming N. Larsen
- * <p>
- * Moves around the outer edge with the gun facing in.
- *
- * @author Mathew A. Nelson (original)
- * @author Flemming N. Larsen (contributor)
- */
 public class SAMUdoBruno extends Robot {
-	private GFGun gun = new GFGun();
-	
-	private static int GF_SIZE = 25;
-	private static int GF_CENTER = (GF_SIZE - 1) / 2;
-	private static int[] guessFactors = new int[GF_SIZE];
-	public static double[] dangerFactors = new double[GF_SIZE];
-	private Point2D targetLocation;
-	private WaveSurfer body = new WaveSurfer();
-	private ArrayList<EnemyWave> enemyWaves = new ArrayList();
 
 	boolean peek; // Don't turn if there's a robot there
 	double moveAmount; // How much to move
@@ -56,7 +44,7 @@ public class SAMUdoBruno extends Robot {
 		ahead(moveAmount);
 		// Turn the gun to turn right 90 degrees.
 		peek = true;
-		turnGunRight(90);
+		//turnGunRight(90);
 		turnRight(90);
 
 		while (true) {
@@ -66,9 +54,14 @@ public class SAMUdoBruno extends Robot {
 			ahead(moveAmount);
 			// Don't look now
 			peek = false;
+			
 			// Turn to the next wall
 			turnRight(90);
 		}
+	}
+	
+	public void onHitByBullet(HitByBulletEvent e){
+		
 	}
 
 	/**
@@ -88,69 +81,44 @@ public class SAMUdoBruno extends Robot {
 	 * onScannedRobot:  Fire!
 	 */
 	public void onScannedRobot(ScannedRobotEvent e) {
-		fire(2);
-		// Note that scan is called automatically when the robot is moving.
-		// By calling it manually here, we make sure we generate another scan event if there's a robot on the next
-		// wall, so that we do not start moving up it until it's gone.
+		double angleToEnemy = (Math.PI * (getHeading()) / 180) + (Math.PI * (e.getBearing()) / 180);
+		double turnToEnemy = Utils.normalRelativeAngle(angleToEnemy - (Math.PI * (getRadarHeading()) / 180));
+		double extraTurn = Math.atan(36.0 / e.getDistance()) * (turnToEnemy >= 0 ? 1 : -1);
+		turnRadarRight(Math.PI * (turnToEnemy + extraTurn) / 180);
+		//turnRadarLeft(Math.PI * (getRadarTurnRemainingRadians()) / 180);
+		double skew = (e.getDistance() - 300) / 5 * -Math.signum(getVelocity());
+		turnRight(e.getBearing() + 90 + skew);	
+		shoot(e);
+		
 		if (peek) {
 			scan();
 		}
 	}
-	
-	private class WaveSurfer{
-		private ScannedRobotEvent lastScan = null;
-		
-		public void onScannedRobot(ScannedRobotEvent e){
-			if(lastScan != null){
-				double bulletPower = lastScan.getEnergy() - e.getEnergy();
-				if(0.1 <= bulletPower && bulletPower <= 3.0){
-					enemyWaves.add(new EnemyWave(lastScan, bulletPower));
-				}
-			}
-			lastScan = e;
-		}
-		
-		public void updateWaves(){
-			for(int i = 0; i < enemyWaves.size();i++){
-				if(enemyWaves.get(i).test()){
-					enemyWaves.remove(i);
-					i--;
-				}
-			}
-		}
-		public void surf(){
-			EnemyWave closestWave = getClosestWave();
-			if(closestWave != null){
-				goTo(closestWave.getSafestSpot());
-			}
-		}
-		
-		public EnemyWave getClosestWave(){
-			double minDistance = Double.POSITIVE_INFINITY;
-			EnemyWave closestWave = null;
-			for(EnemyWave wave: enemyWaves){
-				double distance = wave.distanceFromMe();
-				if(distance < minDistance && distance > wave.bulletSpeed){
-					closestWave = wave;
-					minDistance = distance;
-				}
-			}
-			return closestWave;
-		}		
-		
-		public void goTo(Point2D spot){
-			int x = (int) spot.getX() - (int) getX();
-			int y = (int) spot.getY() - (int) getY();
-			double turn = Math.atan2(x,y);
-			setTurnRightRadians(Math.tan(turn - getHeadingRadians()));
-			setAhead(Math.hypot(x,y) * Math.cos(turn));
-		}
 
-		public void updateFactors(EnemyWave wave, Point2D location){
-			int index = wave.getFactorIndex(location);
-			for(int i = 0; i < GF_SIZE; i++){
-				dangerFactors[i] += 1.0 / (Math.pow(index - i, 2) + 1);
-			}
+	public void shoot(ScannedRobotEvent e) {
+		double firePower = decideFirePower(e);
+		double absoluteBearing = (Math.PI * (e.getBearing()) / 180) + (Math.PI * (getHeading())/180);
+		double gunTurn = absoluteBearing - (Math.PI * (getGunHeading()) / 180);
+		double future = e.getVelocity() * Math.sin((Math.PI * (e.getHeading()) / 180) - absoluteBearing) / Rules.getBulletSpeed(firePower);
+		
+		turnGunRight(Math.PI * (Utils.normalRelativeAngle(gunTurn + future)) / 180);
+		fire(firePower);
+	}
+	
+	public double decideFirePower(ScannedRobotEvent e){
+		double firePower = getOthers() == 1 ? 2.0 : 3.0;
+		
+		if(e.getDistance() > 400){
+			firePower = 1.0;
+		}else if(e.getDistance() < 200) {
+			firePower = 3.0;
 		}
+		
+		if(getEnergy() < 1){
+			firePower = 0.1;
+		}else if(getEnergy() < 10){
+			firePower = 1.0;
+		}
+		return Math.min(e.getEnergy() / 4, firePower);
 	}
 }
