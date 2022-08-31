@@ -21,12 +21,12 @@ public class SAMU1V1 extends AdvancedRobot {
 		}
 		
         while (true) {
+            if(getOthers() < 3)//caso so existam dois inimigos no campo, o modo walls será desabilitado 
+                break;
 			espiao = true;//apos chegar a parede, o espiao pode ser ativado para verificar se existem inimigos no caminho da parede
 			ahead(edgeMovement);//depois de espiar, esta autorizado correr para a proxima borda do campo
 			espiao = false;//enquanto estou correndo, nao estou espiando
 			turnRight(90);//ao chegar na proxima borda, preciso virar 90 graus para continuar no sentido horário percorrendo as paredes
-            if(getOthers() < 3)//caso so existam dois inimigos no campo, o modo walls será desabilitado 
-                break;
 		}
         //modo tracker ativado
 		setAdjustRadarForRobotTurn(true);//mantem o radar estavel quando o robo virar para qualquer direcao		
