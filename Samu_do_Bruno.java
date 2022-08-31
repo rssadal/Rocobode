@@ -1,112 +1,91 @@
 package upa;
-
 import robocode.*;
 import java.awt.*;
 
 public class SAMU1V1 extends AdvancedRobot {
-	int moveDirection=1;//which way to move
-	boolean peek; // Don't turn if there's a robot there
-	double moveAmount; // How much to move
-	/**
-	 * run:  Tracker's main run function
-	 */
+	int motionDirection = 1;//direcao do movimento (frente tras)
+	boolean espiao; // nao virar caso tenha um robo no caminho (atire até ele sair do caminho)
+	double edgeMovement; // movimento necessario para alcançar a borda
+
 	public void run() {
         setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z
-        // Initialize moveAmount to the maximum possible for this battlefield.
-		moveAmount = Math.max(getBattleFieldWidth(), getBattleFieldHeight());
-		// Initialize peek to false
-		peek = false;
-        // turnLeft to face a wall.
-		// getHeading() % 90 means the remainder of
-		// getHeading() divided by 90.
+        setBulletColor(Color.red);//cor do projetil
+		edgeMovement = Math.max(getBattleFieldWidth(), getBattleFieldHeight()); //get no tamanho do campo de batalha
+		espiao = false;
 		if(getOthers() > 2){
-			turnLeft(getHeading() % 90);
-			ahead(moveAmount);
-			// Turn the gun to turn right 90 degrees.
-			peek = true;
-			turnGunRight(90);
-			turnRight(90);
+			turnLeft(getHeading() % 90); // vira para a esquerda para ir para a parede
+			ahead(edgeMovement); //de fato, corre até a parede
+			espiao = true;
+			turnGunRight(90);// vira a arma para deixar ela sempre apontada para dentro do campo de batalha
+			turnRight(90);//vira o robo junto com a arma (nesse ponto o robo esta a uma diferença de 90 graus da direcao arma)
 		}
 		
         while (true) {
-			// Look before we turn when ahead() completes.
-			peek = true;
-			// Move up the wall
-			ahead(moveAmount);
-			// Don't look now
-			peek = false;
-			// Turn to the next wall
-			turnRight(90);
-            if(getOthers() < 3)
+			espiao = true;//apos chegar a parede, o espiao pode ser ativado para verificar se existem inimigos no caminho da parede
+			ahead(edgeMovement);//depois de espiar, esta autorizado correr para a proxima borda do campo
+			espiao = false;//enquanto estou correndo, nao estou espiando
+			turnRight(90);//ao chegar na proxima borda, preciso virar 90 graus para continuar no sentido horário percorrendo as paredes
+            if(getOthers() < 3)//caso so existam dois inimigos no campo, o modo walls será desabilitado 
                 break;
 		}
-
-		setAdjustRadarForRobotTurn(true);//keep the radar still while we turn
-		setScanColor(Color.white);
-		setBulletColor(Color.blue);
-		setAdjustGunForRobotTurn(true); // Keep the gun still when we turn
-		turnRadarRightRadians(Double.POSITIVE_INFINITY);//keep turning radar right
+        //modo tracker ativado
+		setAdjustRadarForRobotTurn(true);//mantem o radar estavel quando o robo virar para qualquer direcao		
+		setAdjustGunForRobotTurn(true);  //mantem a arma estavel quando o robo virar para qualquer direcao	
+		turnRadarRightRadians(Double.POSITIVE_INFINITY);//matem o radar virando para a direita
 	}
 
 	public void onScannedRobot(ScannedRobotEvent e) {
-        if(getOthers() < 3){
-            double absBearing=e.getBearingRadians()+getHeadingRadians();//enemies absolute bearing
-            double latVel=e.getVelocity() * Math.sin(e.getHeadingRadians() -absBearing);//enemies later velocity
-            double gunTurnAmt;//amount to turn our gun
-            setTurnRadarLeftRadians(getRadarTurnRemainingRadians());//lock on the radar
-            if(Math.random()>.9){
-                setMaxVelocity((12*Math.random())+12);//randomly change speed
+        if(getOthers() < 3){//quando o modo tracker esta ativado
+            double angleObject = e.getBearingRadians() + getHeadingRadians();//angulo absoluto entre meu robo e o inimigo
+            double enemyVel = e.getVelocity() * Math.sin(e.getHeadingRadians() - angleObject);//determina velocidade do inimigo
+            double turnCannon;//o quanto eu devo virar minha arma
+            setTurnRadarLeftRadians(getRadarTurnRemainingRadians());//trava o radar em algum inimigo scaneado
+            if(Math.random()>.9)
+                setMaxVelocity((12 * Math.random()) + 12);//mudança de velocidade randomica
+            if (e.getDistance() > 150) {//caso a distancia seja maior que 150
+                turnCannon = robocode.util.Utils.normalRelativeAngle(angleObject - getGunHeadingRadians() + enemyVel / 22);//o quanto eu devo virar minha arma
+                setTurnGunRightRadians(turnCannon);//vira a minha arma
+                setTurnRightRadians(robocode.util.Utils.normalRelativeAngle(angleObject - getHeadingRadians() + enemyVel / getVelocity()));//anda para a posicao futura prevista do inimigo
+                setAhead((e.getDistance() - 140) * motionDirection);//corro para frente
+                shoot(e);//atiro
             }
-            if (e.getDistance() > 150) {//if distance is greater than 150
-                gunTurnAmt = robocode.util.Utils.normalRelativeAngle(absBearing- getGunHeadingRadians()+latVel/22);//amount to turn our gun, lead just a little bit
-                setTurnGunRightRadians(gunTurnAmt); //turn our gun
-                setTurnRightRadians(robocode.util.Utils.normalRelativeAngle(absBearing-getHeadingRadians()+latVel/getVelocity()));//drive towards the enemies predicted future location
-                setAhead((e.getDistance() - 140)*moveDirection);//move forward
-                shoot(e);
-            }
-            else{//if we are close enough...
-                gunTurnAmt = robocode.util.Utils.normalRelativeAngle(absBearing- getGunHeadingRadians()+latVel/15);//amount to turn our gun, lead just a little bit
-                setTurnGunRightRadians(gunTurnAmt);//turn our gun
-                setTurnLeft(-90-e.getBearing()); //turn perpendicular to the enemy
-                setAhead((e.getDistance() - 140)*moveDirection);//move forward
-                shoot(e);
+            else{//caso eu nao esteja perto o suficiente
+                turnCannon = robocode.util.Utils.normalRelativeAngle(angleObject - getGunHeadingRadians() + enemyVel / 15);//o quanto eu devo virar minha arma
+                setTurnGunRightRadians(turnCannon);//vira a minha arma
+                setTurnLeft(-90 - e.getBearing()); //viro perpendicular ao meu inimigo scaneado
+                setAhead((e.getDistance() - 140) * motionDirection);//corro para frente
+                shoot(e);//atiro
             }	
-        }else{
-            shoot(e);
-            if (peek) {
-                scan();
-            }
+        }else{//quando o modo walls esta ativado
+            shoot(e);//atiro
+            if (espiao) //caso o espiao esteja habilitado eu posso scanear a area novamente
+                scan();     
         }
 	}
 
-	public void onHitWall(HitWallEvent e){
-        if(getOthers() < 3){
-		    moveDirection=-moveDirection;//reverse direction upon hitting a wall
-        }
+	public void onHitWall(HitWallEvent e){//quando o modo tracker esta ativado
+        if(getOthers() < 3)
+		    motionDirection=-motionDirection;//direcao oposta caso eu colida com a parede    
 	}
 
-    public void onHitRobot(HitRobotEvent e) {
+    public void onHitRobot(HitRobotEvent e) {//quando o modo walls esta ativado
         if(getOthers() > 2){
-            // If he's in front of us, set back up a bit.
-            if (e.getBearing() > -90 && e.getBearing() < 90) {
-                back(100);
-            } // else he's in back of us, so set ahead a bit.
-            else {
+            if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
+                back(100);          
+            else // se o inimigo esta atras de nos, va para frente um pouco
                 ahead(100);
-            }
         }
 	}
     
-    public void shoot(ScannedRobotEvent e) {
-		if(e.getDistance() < 800){
+    public void shoot(ScannedRobotEvent e) {//funcao que determina a forma correta de atirar
+		if(e.getDistance() < 800){//caso a distancia do inimigo scaneado seja menor que 800 eu posso atirar
 			double firePower = decideFirePower(e);
 			fire(firePower);
 		}
 	}
 	
-	public double decideFirePower(ScannedRobotEvent e){
+	public double decideFirePower(ScannedRobotEvent e){//funcao que determina a potencia do tiro de acordo com a distancia e energia
 		double firePower = getOthers() == 1 ? 3.0 : 2.0;
-		
 		if(e.getDistance() > 400){
 			firePower = 1.0;
 		}else if(e.getDistance() < 200) {
