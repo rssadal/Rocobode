@@ -1,93 +1,103 @@
 package upa;
 
 import robocode.*;
-//import robocode.getBattleFieldWidth;
-import robocode.util.Utils;
-import java.awt.geom.*;     // for Point2D's
-import java.util.ArrayList; // for collection of waves
-import java.awt.Color;
-
+import java.awt.*;
 
 public class SAMU1V1 extends AdvancedRobot {
+	int moveDirection=1;//which way to move
+	boolean peek; // Don't turn if there's a robot there
 	double moveAmount; // How much to move
-	int moveDirection = 1;//+1 frente, -1 trás
-	boolean peek;
-	
+	/**
+	 * run:  Tracker's main run function
+	 */
 	public void run() {
-		setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z		
-		while(true){
-			if(getOthers() <= 2){
-				setAdjustRadarForRobotTurn(true);//estabiliza radar ao virar	
-				setAdjustGunForRobotTurn(true); //estabiliza arma ao virar
-				turnRadarRightRadians(Double.POSITIVE_INFINITY);
-			}else{
-				moveAmount = Math.max(getBattleFieldWidth(), getBattleFieldHeight());
-				peek = false;
-				turnLeft(getHeading() % 90);
-				ahead(moveAmount);
-				peek = true;
-				turnGunRight(90);
-				turnRight(90);
-				
-				while (true) {
-					// Look before we turn when ahead() completes.
-					peek = true;
-					// Move up the wall
-					ahead(moveAmount);
-					// Don't look now
-					peek = false;
-					// Turn to the next wall
-					turnRight(90);
-				}
-			}
+        setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z
+        // Initialize moveAmount to the maximum possible for this battlefield.
+		moveAmount = Math.max(getBattleFieldWidth(), getBattleFieldHeight());
+		// Initialize peek to false
+		peek = false;
+        // turnLeft to face a wall.
+		// getHeading() % 90 means the remainder of
+		// getHeading() divided by 90.
+		if(getOthers() > 2){
+			turnLeft(getHeading() % 90);
+			ahead(moveAmount);
+			// Turn the gun to turn right 90 degrees.
+			peek = true;
+			turnGunRight(90);
+			turnRight(90);
 		}
+		
+        while (true) {
+			// Look before we turn when ahead() completes.
+			peek = true;
+			// Move up the wall
+			ahead(moveAmount);
+			// Don't look now
+			peek = false;
+			// Turn to the next wall
+			turnRight(90);
+            if(getOthers() < 3)
+                break;
+		}
+
+		setAdjustRadarForRobotTurn(true);//keep the radar still while we turn
+		setScanColor(Color.white);
+		setBulletColor(Color.blue);
+		setAdjustGunForRobotTurn(true); // Keep the gun still when we turn
+		turnRadarRightRadians(Double.POSITIVE_INFINITY);//keep turning radar right
 	}
 
 	public void onScannedRobot(ScannedRobotEvent e) {
-	
-		double absoluteBearing = e.getBearingRadians() + getHeadingRadians();              //absolute bearing dos inimigos
-		double latVel = e.getVelocity() * Math.sin(e.getHeadingRadians() -absoluteBearing);//enemies velocity
-		double gunTurnAmount;//amount to turn our gun
-		
-		setTurnRadarLeftRadians(getRadarTurnRemainingRadians());//lock on the radar
-		
-		if(getOthers() <= 2){
-			if(Math.random()>.9){
-				setMaxVelocity((12*Math.random())+12);//mundança de velocidade randomica
-			}
-			if (e.getDistance() > 150) {//caso a distancia seja maior que 150
-				gunTurnAmount = robocode.util.Utils.normalRelativeAngle(absoluteBearing- getGunHeadingRadians()+latVel/22);//ajuste de mira 
-				setTurnGunRightRadians(gunTurnAmount); //aplicando ajuste
-				setTurnRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing-getHeadingRadians()+latVel/getVelocity()));//corre para a posicao futura do inimigo
-				setAhead((e.getDistance() - 140)*moveDirection);//pra frente
-				shoot(e);
-			}
-			else{//se nao estiver perto o suficiente.
-				gunTurnAmount = robocode.util.Utils.normalRelativeAngle(absoluteBearing- getGunHeadingRadians()+latVel/15);//amount to turn our gun, lead just a little bit
-				setTurnGunRightRadians(gunTurnAmount);//turn our gun
-				setTurnLeft(-90-e.getBearing()); //turn perpendicular to the enemy
-				setAhead((e.getDistance() - 140)*moveDirection);//move forward
-				shoot(e);
-			}
-		}else{
-			shoot(e);
-	
-			if (peek) {
-				scan();
-			}
-		}	
+        if(getOthers() < 3){
+            double absBearing=e.getBearingRadians()+getHeadingRadians();//enemies absolute bearing
+            double latVel=e.getVelocity() * Math.sin(e.getHeadingRadians() -absBearing);//enemies later velocity
+            double gunTurnAmt;//amount to turn our gun
+            setTurnRadarLeftRadians(getRadarTurnRemainingRadians());//lock on the radar
+            if(Math.random()>.9){
+                setMaxVelocity((12*Math.random())+12);//randomly change speed
+            }
+            if (e.getDistance() > 150) {//if distance is greater than 150
+                gunTurnAmt = robocode.util.Utils.normalRelativeAngle(absBearing- getGunHeadingRadians()+latVel/22);//amount to turn our gun, lead just a little bit
+                setTurnGunRightRadians(gunTurnAmt); //turn our gun
+                setTurnRightRadians(robocode.util.Utils.normalRelativeAngle(absBearing-getHeadingRadians()+latVel/getVelocity()));//drive towards the enemies predicted future location
+                setAhead((e.getDistance() - 140)*moveDirection);//move forward
+                shoot(e);
+            }
+            else{//if we are close enough...
+                gunTurnAmt = robocode.util.Utils.normalRelativeAngle(absBearing- getGunHeadingRadians()+latVel/15);//amount to turn our gun, lead just a little bit
+                setTurnGunRightRadians(gunTurnAmt);//turn our gun
+                setTurnLeft(-90-e.getBearing()); //turn perpendicular to the enemy
+                setAhead((e.getDistance() - 140)*moveDirection);//move forward
+                shoot(e);
+            }	
+        }else{
+            shoot(e);
+            if (peek) {
+                scan();
+            }
+        }
 	}
 
 	public void onHitWall(HitWallEvent e){
-		/*
-	
-		if(getOthers() == 1){
-			moveDirection=-moveDirection;//corra para direção contraria ao colidir com a parede
-		}*/
-		setAhead((140)*moveDirection);//move forward
+        if(getOthers() < 3){
+		    moveDirection=-moveDirection;//reverse direction upon hitting a wall
+        }
 	}
-	
-	public void shoot(ScannedRobotEvent e) {
+
+    public void onHitRobot(HitRobotEvent e) {
+        if(getOthers() > 2){
+            // If he's in front of us, set back up a bit.
+            if (e.getBearing() > -90 && e.getBearing() < 90) {
+                back(100);
+            } // else he's in back of us, so set ahead a bit.
+            else {
+                ahead(100);
+            }
+        }
+	}
+    
+    public void shoot(ScannedRobotEvent e) {
 		if(e.getDistance() < 800){
 			double firePower = decideFirePower(e);
 			fire(firePower);
