@@ -3,16 +3,17 @@ import robocode.*;
 import java.awt.*;
 
 public class SAMU1V1 extends AdvancedRobot {
-	int motionDirection = 1;//direcao do movimento (frente tras)
+	int motionDirection = -1;//direcao do movimento (frente tras)
 	boolean espiao; // nao virar caso tenha um robo no caminho (atire até ele sair do caminho)
 	double edgeMovement; // movimento necessario para alcançar a borda
+	int contador;
 
 	public void run() {
         setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z
         setBulletColor(Color.red);//cor do projetil
 		edgeMovement = Math.max(getBattleFieldWidth(), getBattleFieldHeight()); //get no tamanho do campo de batalha
 		espiao = false;
-		if(getOthers() > 2){
+		if(getOthers() > 3){
 			turnLeft(getHeading() % 90); // vira para a esquerda para ir para a parede
 			ahead(edgeMovement); //de fato, corre até a parede
 			espiao = true;
@@ -21,7 +22,7 @@ public class SAMU1V1 extends AdvancedRobot {
 		}
 		
         while (true) {
-            if(getOthers() < 3)//caso so existam dois inimigos no campo, o modo walls será desabilitado 
+            if(getOthers() < 4)//caso so existam dois inimigos no campo, o modo walls será desabilitado 
                 break;
 			espiao = true;//apos chegar a parede, o espiao pode ser ativado para verificar se existem inimigos no caminho da parede
 			ahead(edgeMovement);//depois de espiar, esta autorizado correr para a proxima borda do campo
@@ -35,7 +36,7 @@ public class SAMU1V1 extends AdvancedRobot {
 	}
 
 	public void onScannedRobot(ScannedRobotEvent e) {
-        if(getOthers() < 3){//quando o modo tracker esta ativado
+        if(getOthers() < 4){//quando o modo tracker esta ativado
             double angleObject = e.getBearingRadians() + getHeadingRadians();//angulo absoluto entre meu robo e o inimigo
             double enemyVel = e.getVelocity() * Math.sin(e.getHeadingRadians() - angleObject);//determina velocidade do inimigo
             double turnCannon;//o quanto eu devo virar minha arma
@@ -48,33 +49,51 @@ public class SAMU1V1 extends AdvancedRobot {
                 setTurnRightRadians(robocode.util.Utils.normalRelativeAngle(angleObject - getHeadingRadians() + enemyVel / getVelocity()));//anda para a posicao futura prevista do inimigo
                 setAhead((e.getDistance() - 140) * motionDirection);//corro para frente
                 shoot(e);//atiro
-            }
-            else{//caso eu nao esteja perto o suficiente
+            }else{//caso eu nao esteja perto o suficiente
                 turnCannon = robocode.util.Utils.normalRelativeAngle(angleObject - getGunHeadingRadians() + enemyVel / 15);//o quanto eu devo virar minha arma
                 setTurnGunRightRadians(turnCannon);//vira a minha arma
                 setTurnLeft(-90 - e.getBearing()); //viro perpendicular ao meu inimigo scaneado
                 setAhead((e.getDistance() - 140) * motionDirection);//corro para frente
                 shoot(e);//atiro
-            }	
+            }
+			if((getX() == 0 && getY() == 0) || (getX() == getBattleFieldWidth() && getY() == 0) || (getX() == 0 && getY() == getBattleFieldHeight()) || (getX() == getBattleFieldWidth() && getY() == getBattleFieldHeight())){
+				//estou em uma quina
+				if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
+                	back(100);          
+            	else // se o inimigo esta atras de nos, va para frente um pouco
+                	ahead(100);
+			}	
         }else{//quando o modo walls esta ativado
             shoot(e);//atiro
+			
             if (espiao) //caso o espiao esteja habilitado eu posso scanear a area novamente
                 scan();     
         }
 	}
 
 	public void onHitWall(HitWallEvent e){//quando o modo tracker esta ativado
-        if(getOthers() < 3)
+        if(getOthers() < 4)
 		    motionDirection=-motionDirection;//direcao oposta caso eu colida com a parede    
 	}
 
     public void onHitRobot(HitRobotEvent e) {//quando o modo walls esta ativado
-        if(getOthers() > 2){
+        if(getOthers() > 3){
             if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
                 back(100);          
             else // se o inimigo esta atras de nos, va para frente um pouco
                 ahead(100);
         }
+	}
+	
+	public void onHitByBullet(HitByBulletEvent e){
+		contador++;	
+		/*
+		if(getOthers() > 3){	
+			esquiva = (int) Math.random();		
+			turnRight(esquiva);
+			ahead(edgeMovement);
+			turnRight(esquiva);
+		}*/
 	}
     
     public void shoot(ScannedRobotEvent e) {//funcao que determina a forma correta de atirar
