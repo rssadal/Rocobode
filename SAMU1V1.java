@@ -97,8 +97,12 @@ public class SAMU1V1 extends AdvancedRobot {
 
 	public void shoot(ScannedRobotEvent e) {//funcao que determina a forma correta de atirar
 		if(e.getDistance() < 800){//caso a distancia do inimigo scaneado seja menor que 800 eu posso atirar
-			double firePower = decideFirePower(e);//define a potencia do tiro na funcao decideFirePower
-			fire(firePower);//atira com a potencia dinamica
+			double firePower = decideFirePower(e);//define a potencia do tiro na funcao decideFirePower	
+			if(e.getVelocity() == 0){
+				fireBullet(firePower);
+			}else{
+				fire(firePower);//atira com a potencia dinamica
+			}
 		}
 	}
 
@@ -141,6 +145,7 @@ public class SAMU1V1 extends AdvancedRobot {
 			setTurnLeft(-90 - e.getBearing()); //viro perpendicular ao meu inimigo scaneado
 			setAhead((e.getDistance() - 140) * motionDirection);//corro para frente
 		}
+		
 	}
 
 	public void intelAim(double enPosX, double enPosY, double enemyHeading, double enemyVel, double angleObject){//funcao de mira inteligente do walls
@@ -162,5 +167,12 @@ public class SAMU1V1 extends AdvancedRobot {
 		double alpha = Utils.normalAbsoluteAngle(Math.atan2(prevX - getX(), prevY - getY()));
 		setTurnRadarRightRadians(Utils.normalRelativeAngle(angleObject - getRadarHeadingRadians()));
 		setTurnGunRightRadians(Utils.normalRelativeAngle(alpha - getGunHeadingRadians()));
+	}
+	
+	public void onWin(WinEvent e) { //span emotes
+		for (int i = 0; i < 50; i++) {
+			turnRight(30);
+			turnLeft(30);
+		}
 	}
 }
