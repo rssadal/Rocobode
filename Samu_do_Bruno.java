@@ -12,7 +12,8 @@ import java.awt.*;
 
 public class SAMU1V1 extends AdvancedRobot {
 	int motionDirection = 1;//direcao do movimento (frente tras)
-	double edgeMovement; // movimento necessario para alcançar a borda
+	double edgeMovement; // movimento necessario para alcançar a borda]
+	int aux = 0;
 
 	public void run() {
 		setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z
@@ -57,12 +58,24 @@ public class SAMU1V1 extends AdvancedRobot {
 	}
 
 	public void onHitWall(HitWallEvent e){//quando o modo tracker esta ativado
-		if(getOthers() < 3)
-			motionDirection=-motionDirection;//direcao oposta caso eu colida com a parede    
+		if(getOthers() < 3){
+			aux++;
+			motionDirection=-motionDirection;//direcao oposta caso eu colida com a parede
+			if(aux == 10){
+				clearAllEvents();
+				aux = 0;
+			}
+			System.out.println("Bateu na parede\n " + aux);
 		}
+	}
 
 		public void onHitRobot(HitRobotEvent e) {//quando o modo walls esta ativado
 		if(getOthers() > 2){
+			if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
+				back(100);          
+			else // se o inimigo esta atras de nos, va para frente um pouco
+				ahead(100);
+		}else{
 			if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
 				back(100);          
 			else // se o inimigo esta atras de nos, va para frente um pouco
