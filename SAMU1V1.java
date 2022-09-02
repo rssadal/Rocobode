@@ -14,6 +14,7 @@ public class SAMU1V1 extends AdvancedRobot {
 	int motionDirection = 1;//direcao do movimento (frente tras)
 	double edgeMovement; // movimento necessario para alcançar a borda]
 	int aux = 0;
+	boolean atirei = false;
 
 	public void run() {
 		setColors(Color.white,Color.red,Color.red); // Corpo X Arma Y Radar Z
@@ -46,13 +47,17 @@ public class SAMU1V1 extends AdvancedRobot {
 			double turnCannon = 0.0;//o quanto eu devo virar minha arma
 			setTurnRadarLeftRadians(getRadarTurnRemainingRadians());//trava o radar em algum inimigo scaneado
 			aimBot(turnCannon, angleObject, enemyVel, motionDirection, e);//funcao de mira inteligente
+			atirei = true;
 			shoot(e);//atiro
+			atirei = false;
 		}else{//quando o modo walls esta ativado
 			double enPosX = getX() + e.getDistance() * Math.sin(angleObject);//posicao do inimigo no eixo x
 			double enPosY = getY() + e.getDistance() * Math.cos(angleObject);//posicao do inimigo no eixo y
 			double enemyHeading = e.getHeadingRadians();
 			intelAim(enPosX, enPosY, enemyHeading, enemyVel, angleObject);//funcao de mira inteligente
+			atirei = true;
 			shoot(e);
+			atirei = false;
 			setAhead((e.getDistance() - 140) * motionDirection);//faz um "pendulo" para atirar e desviar
 		}
 	}
@@ -62,13 +67,20 @@ public class SAMU1V1 extends AdvancedRobot {
 			aux++;
 			motionDirection=-motionDirection;//direcao oposta caso eu colida com a parede
 			if(aux == 10){
-				clearAllEvents();
+				clearAllEvents();//limpa eventos pendentes
 				aux = 0;
 			}
-			System.out.println("Bateu na parede\n " + aux);
 		}
 	}
-
+	public void onHitByBullet(HitByBulletEvent e){
+		if(getOthers() > 2 && !atirei){
+			if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
+				back(100);          
+			else // se o inimigo esta atras de nos, va para frente um pouco
+				ahead(100);
+			System.out.println("tomei tiro e nao dei");
+		}
+	}
 		public void onHitRobot(HitRobotEvent e) {//quando o modo walls esta ativado
 		if(getOthers() > 2){
 			if (e.getBearing() > -90 && e.getBearing() < 90) //se o inimigo esta na nossa frente, va para tras um pouco
